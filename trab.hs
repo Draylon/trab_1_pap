@@ -2,7 +2,7 @@ import Data.List
 import Text.ParserCombinators.Parsec
 
 data Type = 
-    TypeInt String
+    TypeInt
     | TypeVar Name
     | TypeArrow Type Type
     deriving Show
@@ -40,44 +40,53 @@ main = do
       print e
 
 
+whitespace :: Parser ()
+whitespace = do
+  -- Note que não usamos o many1!
+  many (char ' ')
+  return ()
+
+
 
 parseType :: Parser Type -- type: function | atom
-parseType = do
-    try parseAtom -- <|> parseFun
+parseType =
+    try parseAtom <|> parseFun
 
 parseAtom :: Parser Type -- atom: int | var | paren
-parseAtom = do
-    try parseInt <|> parseVar -- <|> parseParen
+parseAtom =
+    try parseInt <|> parseVar <|> parseParen
 
 parseInt :: Parser Type -- int: "Int"
 parseInt = do
-    show_ <- many1 digit
-    return (TypeInt show_)
+    string "Int"
+    return (TypeInt)
 
 parseVar :: Parser Type -- var: lowercase+
 parseVar = do
-  head <- upper
-  tail <- many alphaNum
-  return (TypeVar (head:tail))
+  name <- many1 lower
+  return (TypeVar name)
 
 
-{-
+
 parseFun :: Parser Type -- fun: atom "->" type
 parseFun = do
   ret1 <- parseAtom
-  ret2 <- ?
+  whitespace
+  string "->"
+  whitespace
   ret3 <- parseType
-  return (TypeArrow)
+  return (TypeArrow ret1 ret3)
 
 
 parseParen :: Parser Type -- paren: "(" type ")"
 parseParen = do
   char '('
+  whitespace
   typ <- parseType
+  whitespace
   char ')'
 
   return ( typ )
--}
 
 
 
@@ -133,9 +142,18 @@ predicate = do
 
 
 
+
+
+
+
+
+
+
+
+
 unify :: Type -> Type -> Maybe Unifier
 
-unify (TypeInt x) (TypeInt y) | x == y = Just []
+unify (TypeInt) (TypeInt) = Just []
 
 --
 -- Regra (VAR):
@@ -165,8 +183,7 @@ unify (TypeVar x) e | not (occursCheck x e) =
 unify e (TypeVar x) | not (occursCheck x e) =
   Just [(x, e)]
 
-unify (TypeInt x) (TypeInt y)
-    | x == y = Just []
+
 
 unify (TypeArrow x xs) (TypeArrow y ys) = 
   case unify x y of
@@ -193,8 +210,8 @@ subst :: Unifier -> Type -> Type
 -- Átomos fazem parte da estrutura e não mudam; portanto,
 --   s(x) = x
 --
-subst s (TypeInt x) =
-  TypeInt x
+subst s (TypeInt) =
+  TypeInt
 
 --
 --  A substituição, para variáveis, deve verificar se ela
@@ -218,7 +235,7 @@ subst s (TypeArrow x es) =
 
 occursCheck :: Name -> Type -> Bool
 
-occursCheck x (TypeInt y) =
+occursCheck x (TypeInt) =
   False
 
 occursCheck x (TypeVar y) =
