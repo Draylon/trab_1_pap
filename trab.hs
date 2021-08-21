@@ -251,7 +251,7 @@ subst s (TypeVar x) =
 
 
 subst s (TypeArrow x y) =
-  TypeArrow x (subst s y)
+  TypeArrow (subst s x) (subst s y)
 
 
 
