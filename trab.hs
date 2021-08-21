@@ -29,7 +29,7 @@ unit = do
   return t
 
 
-main :: IO ()
+{- main :: IO ()
 main = do
   putStrLn "Digite um termo:"
   str <- getLine
@@ -37,8 +37,33 @@ main = do
     Right e -> do
       print $ occursCheck "X" e
     Left e ->
-      print e
+      print e -}
 
+
+main :: IO ()
+main = do
+  putStrLn "Digite um termo:"
+  str1 <- getLine
+  let Right a = parse unit "<stdin>" str1
+  str2 <- getLine
+  let Right b = parse unit "<stdin>" str2
+  --
+  putStrLn "Unificacao:"
+  case unify a b of
+    Just s ->
+      putStrLn $ showUnifier s
+    Nothing ->
+      putStrLn "Deu ruim!"
+
+
+showUnifier [] =
+  "{}"
+showUnifier xs =
+  "{ " ++ intercalate ", " (map showPair xs) ++ " }"
+  where
+    showPair (x, e) =
+      x ++ " |-> " ++ show e
+      
 
 whitespace :: Parser ()
 whitespace = do
@@ -50,7 +75,7 @@ whitespace = do
 
 parseType :: Parser Type -- type: function | atom
 parseType =
-    try parseAtom <|> parseFun
+    try parseFun <|> parseAtom
 
 parseAtom :: Parser Type -- atom: int | var | paren
 parseAtom =
@@ -171,8 +196,8 @@ unify (TypeVar x) (TypeVar y) | x == y =
 --    ------------------------ (LEFT)
 --       X ~ e = { X |-> e }
 --
-unify (TypeVar x) e | not (occursCheck x e) =
-  Just [(x, e)]
+unify (TypeVar x) e 
+  | not (occursCheck x e) = Just [(x, e)]
 
 --
 -- Regra (RIGHT):
@@ -180,15 +205,15 @@ unify (TypeVar x) e | not (occursCheck x e) =
 --    ------------------------ (RIGHT)
 --       e ~ X = { X |-> e }
 --
-unify e (TypeVar x) | not (occursCheck x e) =
-  Just [(x, e)]
+unify e (TypeVar x)
+  | not (occursCheck x e) = Just [(x, e)]
 
 
 
-unify (TypeArrow x xs) (TypeArrow y ys) = 
-  case unify x y of
-    Just _ -> unify xs ys
-    Nothing -> Nothing
+unify (TypeArrow x xs) (TypeArrow y ys) = do
+    s1 <- unify x y
+    s2 <- unify (subst s1 xs) (subst s1 ys)
+    return (compose s2 s1)
 
 
 unify a b =
@@ -225,11 +250,8 @@ subst s (TypeVar x) =
     Nothing -> TypeVar x
 
 
-subst s (TypeArrow x es) =
-  -- x :: String
-  -- es :: [Type]
-  -- Lembrem-se: usamos map pois temos uma LISTA de subtermos!
-  TypeArrow x (subst s es)
+subst s (TypeArrow x y) =
+  TypeArrow x (subst s y)
 
 
 
@@ -241,9 +263,9 @@ occursCheck x (TypeInt) =
 occursCheck x (TypeVar y) =
   x == y
 
-{- occursCheck x (TypeArrow y es) =
-  any (occursCheck x) es
- -}
+occursCheck x (TypeArrow y es) =
+  occursCheck x es
+
 
 
 unifyList :: [Type] -> [Type] -> Maybe Unifier
